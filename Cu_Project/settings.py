@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+import urllib.parse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,12 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-hvm65x4q#d1+(j=b4-va1+(@qt-@4-9_#x(f@n_^8t*b&u^vc3'
+# Utilise une variable d'environnement pour la clé secrète en production
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-hvm65x4q#d1+(j=b4-va1+(@qt-@4-9_#x(f@n_^8t*b&u^vc3')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG est False en production sur Vercel
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+# Configuration des hôtes autorisés
+ALLOWED_HOSTS = ['.vercel.app', '.now.sh', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -46,6 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # AJOUTÉ : Pour les fichiers statiques en production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -63,6 +68,7 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -77,12 +83,28 @@ WSGI_APPLICATION = 'Cu_Project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Configuration pour PostgreSQL en production (Vercel Postgres) ou SQLite en développement
+if os.environ.get("DATABASE_URL"):
+    # Utilise PostgreSQL sur Vercel
+    url = urllib.parse.urlparse(os.environ["DATABASE_URL"])
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": url.path.lstrip("/"),
+            "USER": url.username,
+            "PASSWORD": url.password,
+            "HOST": url.hostname,
+            "PORT": url.port,
+        }
     }
-}
+else:
+    # Utilise SQLite en développement local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -121,15 +143,22 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-#on a ajouter ca pour indiquer ou se trouve le dossier static dans notre project
-
+# Où Django trouve les fichiers statiques pendant le développement
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),  # ← Ceci est ESSENTIEL
+    os.path.join(BASE_DIR, 'static'),
 ]
 
-#ca c'est pour le chatbot
+# Où Django collecte les fichiers statiques pour la production
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Ajoutez ceci à la fin du fichier
+# Configuration de Whitenoise pour servir les fichiers statiques en production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Media files (uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Configuration pour le chatbot
 ASGI_APPLICATION = 'Cu_Project.asgi.application'
 
 # Configuration simple pour le développement (pas besoin de Redis)
@@ -138,3 +167,11 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',  
     },
 }
+
+# Configuration de sécurité pour la production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
