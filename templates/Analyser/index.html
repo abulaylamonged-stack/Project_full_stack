@@ -1,0 +1,1533 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+    
+<head>
+    <title>SecuAnalyzer | Analyseur de vulnérabilités réseau</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Analysez vos fichiers .cap et détectez les vulnérabilités réseau">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ========== VARIABLES ========== */
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-light: #818cf8;
+            --secondary: #64748b;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --gradient-1: #4f46e5;
+            --gradient-2: #7c3aed;
+            --gradient-3: #ec4899;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #2e1065 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .navbar {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 1rem 0;
+            z-index: 100;
+        }
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #ffffff, #a5b4fc, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 0 0.5rem;
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            color: white;
+            background: rgba(79, 70, 229, 0.2);
+        }
+        
+        .main-card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+            transition: all 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .main-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.4);
+        }
+        
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+        }
+        
+        .upload-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(124, 58, 237, 0.1));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .upload-icon i {
+            font-size: 48px;
+            color: var(--primary);
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .drop-zone {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px dashed #cbd5e1;
+            cursor: pointer;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .drop-zone::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(79, 70, 229, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .drop-zone:hover::after {
+            left: 100%;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+            transform: scale(1.02);
+        }
+        
+        .drop-zone i {
+            transition: transform 0.3s ease;
+        }
+        
+        .drop-zone:hover i {
+            transform: translateY(-5px);
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            border: none;
+            padding: 14px 28px;
+            font-weight: 600;
+            font-size: 1rem;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+        
+        .analyze-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .analyze-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
+        }
+        
+        .analyze-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .file-info {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            animation: slideDown 0.3s ease;
+        }
+        
+        .file-info.show {
+            display: flex;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .file-info .file-name {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .remove-file {
+            color: var(--danger);
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 5px;
+            border-radius: 50%;
+        }
+        
+        .remove-file:hover {
+            background: rgba(239, 68, 68, 0.1);
+            transform: scale(1.1);
+        }
+        
+        .toast-notification {
+            position: fixed;
+            top: 90px;
+            right: 20px;
+            background: white;
+            border-radius: 16px;
+            padding: 14px 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+            transform: translateX(400px);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            max-width: 380px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .toast-notification.show {
+            transform: translateX(0);
+        }
+        
+        .toast-notification.success {
+            border-left: 4px solid var(--success);
+        }
+        
+        .toast-notification.error {
+            border-left: 4px solid var(--danger);
+        }
+        
+        .toast-notification.info {
+            border-left: 4px solid var(--info);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 70px;
+            height: 70px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--primary-light);
+            border-right-color: var(--gradient-2);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 25px;
+        }
+        
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .loading-subtext {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .loading-progress {
+            width: 250px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .loading-progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-light), var(--gradient-2));
+            animation: progress 2s ease infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        
+        .chatbot-icon {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+        }
+        
+        .chatbot-icon:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 15px 40px rgba(79, 70, 229, 0.5);
+        }
+        
+        .chatbot-icon span {
+            font-size: 32px;
+            animation: wave 2s ease infinite;
+            transform-origin: 70% 70%;
+        }
+        
+        @keyframes wave {
+            0%, 100% { transform: rotate(0deg); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-10deg); }
+            60% { transform: rotate(5deg); }
+        }
+        
+        .chatbot-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 18px;
+            height: 18px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid white;
+            display: none;
+        }
+        
+        .chatbot-badge.show {
+            display: block;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+        
+        .chat-window {
+            position: fixed;
+            bottom: 100px;
+            right: 25px;
+            width: 380px;
+            height: 550px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1001;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .chat-window.open {
+            display: flex;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .chat-window .chat-header {
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            color: white;
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-window .chat-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .chat-window .chat-header .close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .chat-window .chat-header .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 18px;
+            background: #f7fafc;
+        }
+        
+        .message {
+            margin-bottom: 14px;
+            display: flex;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message.bot {
+            justify-content: flex-start;
+        }
+        
+        .message-content {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        
+        .user .message-content {
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .bot .message-content {
+            background: white;
+            color: var(--dark);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            gap: 10px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 30px;
+            outline: none;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .chat-input input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .chat-input button {
+            background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .chat-input button:hover {
+            transform: scale(1.05);
+        }
+        
+        .typing-indicator {
+            font-style: italic;
+            color: #94a3b8;
+            background: white;
+            align-self: flex-start;
+            padding: 8px 14px;
+            border-radius: 18px;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        @media (max-width: 768px) {
+            .main-card .card-body {
+                padding: 2rem !important;
+            }
+            .chat-window {
+                width: calc(100vw - 40px);
+                right: 20px;
+                height: 500px;
+            }
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+        }
+
+        .results-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: modalFadeIn 0.3s ease;
+        }
+        
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-container {
+            position: relative;
+            width: 90%;
+            max-width: 950px;
+            max-height: 85vh;
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+            animation: modalSlideUp 0.3s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes modalSlideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .modal-header h2 i {
+            margin-right: 10px;
+        }
+        
+        .modal-subtitle {
+            margin: 5px 0 0;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .modal-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 18px;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f8fafc;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        .btn-close-modal {
+            background: #f1f5f9;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-close-modal:hover {
+            background: #e2e8f0;
+        }
+        
+        .btn-download-report {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-download-report:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+        
+        .modal-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .modal-stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal-stat-icon {
+            font-size: 28px;
+            color: #4f46e5;
+            margin-bottom: 8px;
+        }
+        
+        .modal-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .modal-stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .modal-security-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal-security-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .modal-security-circle {
+            flex-shrink: 0;
+        }
+        
+        .modal-security-level {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .modal-security-desc {
+            color: #475569;
+            font-size: 14px;
+        }
+        
+        .modal-chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal-chart-card h3 {
+            margin: 0 0 16px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .modal-chart-image {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+        }
+        
+        .modal-vuln-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal-vuln-card h3 {
+            margin: 0 0 16px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .modal-vuln-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .modal-vuln-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid;
+        }
+        
+        .modal-vuln-item.severity-critical { border-left-color: #dc2626; }
+        .modal-vuln-item.severity-high { border-left-color: #f97316; }
+        .modal-vuln-item.severity-medium { border-left-color: #fbbf24; }
+        .modal-vuln-item.severity-low { border-left-color: #10b981; }
+        
+        .modal-vuln-icon {
+            font-size: 24px;
+            color: #4f46e5;
+        }
+        
+        .modal-vuln-content {
+            flex: 1;
+        }
+        
+        .modal-vuln-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .modal-severity-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .severity-critical .modal-severity-badge { background: #fee2e2; color: #dc2626; }
+        .severity-high .modal-severity-badge { background: #ffedd5; color: #f97316; }
+        .severity-medium .modal-severity-badge { background: #fef3c7; color: #fbbf24; }
+        .severity-low .modal-severity-badge { background: #d1fae5; color: #10b981; }
+        
+        .modal-vuln-desc {
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 8px;
+        }
+        
+        .modal-vuln-recommendation {
+            font-size: 12px;
+            color: #4f46e5;
+            background: #eef2ff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        
+        .modal-no-vuln {
+            text-align: center;
+            padding: 30px;
+            color: #22c55e;
+        }
+        
+        .modal-no-vuln i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .modal-stats-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .modal-stats-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal-stats-card h4 {
+            margin: 0 0 12px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .modal-stats-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .modal-stats-list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+        
+        .modal-stats-count {
+            font-weight: 600;
+            color: #4f46e5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <span class="navbar-brand">
+                🛡️ SecuAnalyzer
+            </span>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon" style="background-color: white;"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Accueil</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#upload">Upload .cap</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/results/">Résultats</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="padding-top: 100px;">
+        <div class="d-flex justify-content-center align-items-center" style="min-height: calc(100vh - 150px);">
+            <div class="main-card" style="width: 100%; max-width: 550px;">
+                <div class="card-body p-5 text-center">
+                    <div class="upload-icon">
+                        <i class="fas fa-shield-haltered"></i>
+                    </div>
+                    
+                    <h3 class="card-title mb-2" style="font-weight: 700; color: var(--dark);">Analyse de sécurité</h3>
+                    <p class="text-muted mb-4">Détectez les vulnérabilités dans vos captures réseau</p>
+                    
+                    <div class="drop-zone p-4 mb-3">
+                        <i class="fas fa-cloud-upload-alt fa-3x mb-3" style="color: var(--primary);"></i>
+                        <p class="mb-0 fw-semibold">Glissez-déposez votre fichier ici</p>
+                        <small class="text-muted">ou cliquez pour parcourir</small>
+                        <input type="file" id="fileInput" accept=".cap,.pcap,.pcapng" style="display: none;">
+                    </div>
+                    
+                    <div class="file-info" id="fileInfo">
+                        <i class="fas fa-file-archive" style="color: var(--primary);"></i>
+                        <span class="file-name" id="fileName">Aucun fichier</span>
+                        <i class="fas fa-times-circle remove-file" id="removeFile"></i>
+                    </div>
+                    
+                    <button id="analyzeBtn" class="btn analyze-btn w-100">
+                        <i class="fas fa-chart-line me-2"></i>Analyser le fichier
+                    </button>
+                    
+                    <div class="mt-4">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i> Formats supportés : .cap, .pcap, .pcapng
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chatbot-icon" id="chatbot-icon">
+        <span>🤖</span>
+        <div class="chatbot-badge" id="chatbotBadge"></div>
+    </div>
+    
+    <div class="chat-window" id="chat-window">
+        <div class="chat-header">
+            <h3><i class="fas fa-robot me-2"></i>Assistant IA</h3>
+            <button class="close-btn" id="close-chat">✕</button>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot">
+                <div class="message-content">
+                    👋 Bonjour ! Je suis votre assistant. Posez-moi vos questions sur les fichiers .cap !
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Tapez votre message..." autofocus>
+            <button id="send-button">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="resultsModal" class="results-modal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <div>
+                    <h2><i class="fas fa-chart-line"></i> Résultats de l'analyse</h2>
+                    <p class="modal-subtitle" id="modalFilename"></p>
+                </div>
+                <button class="modal-close" id="closeModalBtn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div style="text-align: center; padding: 40px;">
+                    <div class="loading-spinner" style="margin: 0 auto;"></div>
+                    <p>Chargement des résultats...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-close-modal" id="closeModalFooterBtn">Fermer</button>
+                <button class="btn-download-report" id="downloadReportBtn">
+                    <i class="fas fa-download"></i> Télécharger rapport
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        function showNotification(message, type = 'info') {
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) existingToast.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+            
+            let icon = '';
+            if (type === 'success') icon = '<i class="fas fa-check-circle" style="color: #22c55e; font-size: 18px;"></i>';
+            else if (type === 'error') icon = '<i class="fas fa-exclamation-circle" style="color: #ef4444; font-size: 18px;"></i>';
+            else icon = '<i class="fas fa-info-circle" style="color: #3b82f6; font-size: 18px;"></i>';
+            
+            toast.innerHTML = `${icon}<span style="flex:1">${message}</span><i class="fas fa-times" style="cursor:pointer; color:#94a3b8;"></i>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            toast.querySelector('.fa-times').addEventListener('click', () => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            });
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+        
+        function showLoading(message = 'Analyse en cours...') {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.id = 'loadingOverlay';
+            overlay.innerHTML = `
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">${message}</div>
+                    <div class="loading-subtext">Veuillez patienter...</div>
+                    <div class="loading-progress">
+                        <div class="loading-progress-bar"></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.remove();
+        }
+        
+        const dropZone = document.querySelector('.drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileNameSpan = document.getElementById('fileName');
+        const removeFileBtn = document.getElementById('removeFile');
+        let selectedFile = null;
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.cap') || file.name.endsWith('.pcap') || file.name.endsWith('.pcapng'))) {
+                handleFileSelect(file);
+            } else {
+                showNotification('Veuillez uploader un fichier .cap, .pcap ou .pcapng', 'error');
+            }
+        });
+        
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files[0]) {
+                handleFileSelect(fileInput.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            selectedFile = file;
+            fileNameSpan.textContent = file.name;
+            fileInfo.classList.add('show');
+            showNotification(`Fichier sélectionné : ${file.name}`, 'success');
+        }
+        
+        removeFileBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            fileInfo.classList.remove('show');
+            showNotification('Fichier retiré', 'info');
+        });
+        
+        // ========== ANALYSE AVEC BONNE URL POUR L'APP "Analyser" ==========
+        analyzeBtn.addEventListener('click', function() {
+            if (!selectedFile) {
+                showNotification('Veuillez d\'abord sélectionner un fichier', 'error');
+                dropZone.style.animation = 'shake 0.5s ease';
+                setTimeout(() => dropZone.style.animation = '', 500);
+                return;
+            }
+            
+            showLoading('Analyse du fichier en cours...');
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            // ✅ URL CORRECTE pour l'application "Analyser" (avec un 'A' majuscule)
+            // Comme l'application s'appelle "Analyser", l'URL est /upload/ (sans préfixe)
+            // car dans urls.py principal vous avez path('', include('Analyser.urls'))
+            fetch('/upload/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.error('Réponse erreur:', text.substring(0, 200));
+                        throw new Error(`Erreur serveur ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showResultsModal(data.results);
+                    showNotification('Analyse terminée avec succès !', 'success');
+                } else {
+                    showNotification(data.error || 'Erreur lors de l\'analyse', 'error');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Erreur détaillée:', error);
+                showNotification('Erreur: ' + error.message + '. Vérifiez que le serveur Django est démarré.', 'error');
+            });
+        });
+        
+        const shakeStyle = document.createElement('style');
+        shakeStyle.textContent = `@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }`;
+        document.head.appendChild(shakeStyle);
+        
+        function closeModal() {
+            const modal = document.getElementById('resultsModal');
+            modal.style.display = 'none';
+        }
+        
+        function showResultsModal(results) {
+            const modal = document.getElementById('resultsModal');
+            const modalBody = document.getElementById('modalBody');
+            const modalFilename = document.getElementById('modalFilename');
+            
+            modalFilename.textContent = `Fichier: ${results.filename}`;
+            
+            modalBody.innerHTML = `
+                <div class="modal-stats-grid">
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-icon"><i class="fas fa-network-wired"></i></div>
+                        <div class="modal-stat-number">${(results.total_packets || 0).toLocaleString()}</div>
+                        <div class="modal-stat-label">Paquets analysés</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-icon"><i class="fas fa-database"></i></div>
+                        <div class="modal-stat-number">${((results.total_bytes || 0) / 1024 / 1024).toFixed(2)} MB</div>
+                        <div class="modal-stat-label">Volume de données</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="modal-stat-number">${results.duration || 0}s</div>
+                        <div class="modal-stat-label">Durée capture</div>
+                    </div>
+                    <div class="modal-stat-card">
+                        <div class="modal-stat-icon"><i class="fas fa-bug"></i></div>
+                        <div class="modal-stat-number">${(results.vulnerabilities || []).length}</div>
+                        <div class="modal-stat-label">Vulnérabilités</div>
+                    </div>
+                </div>
+                
+                <div class="modal-security-card" style="border-top: 4px solid ${results.security_color || '#4f46e5'}">
+                    <div class="modal-security-wrapper">
+                        <div class="modal-security-circle">
+                            <svg width="100" height="100" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="54" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+                                <circle cx="60" cy="60" r="54" fill="none" stroke="${results.security_color || '#4f46e5'}" stroke-width="8" 
+                                        stroke-dasharray="${2 * Math.PI * 54}" stroke-dashoffset="${2 * Math.PI * 54 * (1 - (results.security_score || 0) / 100)}"
+                                        transform="rotate(-90 60 60)"/>
+                                <text x="60" y="65" text-anchor="middle" fill="${results.security_color || '#4f46e5'}" font-size="22" font-weight="bold">${results.security_score || 0}%</text>
+                            </svg>
+                        </div>
+                        <div class="modal-security-info">
+                            <div class="modal-security-level" style="color: ${results.security_color || '#4f46e5'}">
+                                <i class="fas ${results.security_icon || 'fa-shield-alt'}"></i> ${results.security_level || 'Analyse terminée'}
+                            </div>
+                            <div class="modal-security-desc">
+                                ${(results.security_score || 0) >= 80 ? '✅ Réseau sécurisé. Continuez à surveiller.' : 
+                                  (results.security_score || 0) >= 50 ? '⚠️ Des vulnérabilités ont été détectées. Examinez les recommandations.' : 
+                                  '🔴 Vulnérabilités critiques détectées. Action immédiate requise !'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${results.chart_image ? `
+                <div class="modal-chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> Visualisation des données</h3>
+                    <img src="data:image/png;base64,${results.chart_image}" alt="Graphique d'analyse" class="modal-chart-image">
+                </div>
+                ` : ''}
+                
+                <div class="modal-vuln-card">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Vulnérabilités détectées</h3>
+                    ${results.vulnerabilities && results.vulnerabilities.length > 0 ? `
+                        <div class="modal-vuln-list">
+                            ${results.vulnerabilities.map(v => `
+                                <div class="modal-vuln-item severity-${(v.severity || 'low').toLowerCase()}">
+                                    <div class="modal-vuln-icon"><i class="fas ${v.icon || 'fa-shield-virus'}"></i></div>
+                                    <div class="modal-vuln-content">
+                                        <div class="modal-vuln-title">
+                                            <span>${v.type || 'Vulnérabilité'}</span>
+                                            <span class="modal-severity-badge">${v.severity || 'Low'}</span>
+                                        </div>
+                                        <div class="modal-vuln-desc">${v.description || ''}</div>
+                                        <div class="modal-vuln-recommendation">
+                                            <i class="fas fa-lightbulb"></i> ${v.recommendation || 'Aucune recommandation disponible'}
+                                        </div>
+                                        ${v.confidence ? `<div class="text-xs text-gray-500 mt-2">Confiance IA: ${v.confidence}%</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="modal-no-vuln">
+                            <i class="fas fa-check-circle"></i>
+                            <p>Aucune vulnérabilité détectée !</p>
+                            <small>Votre réseau semble sécurisé</small>
+                        </div>
+                    `}
+                </div>
+                
+                <div class="modal-stats-row">
+                    <div class="modal-stats-card">
+                        <h4><i class="fas fa-globe"></i> Top IPs sources</h4>
+                        <div class="modal-stats-list">
+                            ${Object.entries(results.top_ips || {}).slice(0, 5).map(([ip, count]) => `
+                                <div class="modal-stats-list-item">
+                                    <span>${ip}</span>
+                                    <span class="modal-stats-count">${count} paquets</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-stats-card">
+                        <h4><i class="fas fa-plug"></i> Top ports</h4>
+                        <div class="modal-stats-list">
+                            ${Object.entries(results.top_ports || {}).slice(0, 5).map(([port, count]) => `
+                                <div class="modal-stats-list-item">
+                                    <span>Port ${port}</span>
+                                    <span class="modal-stats-count">${count} connexions</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function downloadReport(results) {
+            const reportContent = {
+                filename: results.filename,
+                analysis_date: new Date().toISOString(),
+                total_packets: results.total_packets,
+                total_bytes: results.total_bytes,
+                duration: results.duration,
+                security_score: results.security_score,
+                security_level: results.security_level,
+                vulnerabilities: results.vulnerabilities,
+                top_ips: results.top_ips,
+                top_ports: results.top_ports,
+                protocols: results.protocols
+            };
+            
+            const dataStr = JSON.stringify(reportContent, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `rapport_analyse_${results.filename.replace(/\.(cap|pcap|pcapng)$/, '')}_${new Date().toISOString().slice(0,19)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            showNotification('Rapport téléchargé avec succès !', 'success');
+        }
+        
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('closeModalFooterBtn').addEventListener('click', closeModal);
+        document.getElementById('downloadReportBtn').addEventListener('click', function() {
+            const lastResults = window.lastResults;
+            if (lastResults) {
+                downloadReport(lastResults);
+            }
+        });
+        
+        const originalShowResultsModal = showResultsModal;
+        window.showResultsModal = function(results) {
+            window.lastResults = results;
+            originalShowResultsModal(results);
+        };
+        showResultsModal = window.showResultsModal;
+        
+        document.querySelector('.modal-overlay')?.addEventListener('click', closeModal);
+        
+        const chatbotIcon = document.getElementById('chatbot-icon');
+        const chatWindow = document.getElementById('chat-window');
+        const closeChat = document.getElementById('close-chat');
+        const messagesDiv = document.getElementById('chat-messages');
+        const messageInputChat = document.getElementById('message-input');
+        const sendButtonChat = document.getElementById('send-button');
+        const chatbotBadge = document.getElementById('chatbotBadge');
+        
+        let typingIndicator = null;
+        let unreadCount = 0;
+        
+        chatbotIcon.addEventListener('click', () => {
+            chatWindow.classList.add('open');
+            messageInputChat.focus();
+            unreadCount = 0;
+            chatbotBadge.classList.remove('show');
+        });
+        
+        closeChat.addEventListener('click', () => {
+            chatWindow.classList.remove('open');
+        });
+        
+        const wsUrl = `ws://${window.location.host}/ws/chat/main/`;
+        let ws = null;
+        
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => console.log('🤖 Chatbot connecté');
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    removeTypingIndicator();
+                    addChatMessage(data.message, 'bot');
+                    if (!chatWindow.classList.contains('open')) {
+                        unreadCount++;
+                        chatbotBadge.classList.add('show');
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    removeTypingIndicator();
+                    addChatMessage('❌ Erreur de connexion au chatbot', 'bot');
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket fermé, reconnexion dans 3s...');
+                    setTimeout(connectWebSocket, 3000);
+                };
+            } catch (e) {
+                console.error('Erreur WebSocket:', e);
+                setTimeout(connectWebSocket, 5000);
+            }
+        }
+        
+        connectWebSocket();
+        
+        function addChatMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `<div class="message-content">${text.replace(/\n/g, '<br>')}</div>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function showTypingIndicator() {
+            removeTypingIndicator();
+            typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.innerHTML = '<i class="fas fa-ellipsis-h"></i> L\'assistant écrit...';
+            messagesDiv.appendChild(typingIndicator);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function removeTypingIndicator() {
+            if (typingIndicator) {
+                typingIndicator.remove();
+                typingIndicator = null;
+            }
+        }
+        
+        function sendChatMessage() {
+            const message = messageInputChat.value.trim();
+            if (!message) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addChatMessage('❌ Chatbot non connecté. Reconnexion en cours...', 'bot');
+                connectWebSocket();
+                return;
+            }
+            addChatMessage(message, 'user');
+            showTypingIndicator();
+            ws.send(JSON.stringify({ message: message }));
+            messageInputChat.value = '';
+        }
+        
+        sendButtonChat.addEventListener('click', sendChatMessage);
+        messageInputChat.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+        
+        console.log('✅ Page chargée et prête');
+    </script>
+
+</body>
+</html>
